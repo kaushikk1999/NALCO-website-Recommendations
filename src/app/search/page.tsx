@@ -185,7 +185,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             )}
             {query.trim() && shownResults.length === 0 && (
               <div className="rounded-xl border border-[#859399]/15 bg-[#161d1f]/60 p-6 text-[#bbc9cf] backdrop-blur-xl">
-                I could not verify this from available sources.
+                I could not find enough verified evidence for this search. Try a source-backed NALCO topic such as recent announcements, filings, aluminium market context, entity mapping, or policy risks.
               </div>
             )}
             {shownResults.map((item, index) => {

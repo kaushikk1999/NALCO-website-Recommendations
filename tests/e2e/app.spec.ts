@@ -225,14 +225,16 @@ test("api routes return expected JSON and validation errors", async ({ request }
   const privateClaim = await request.post("/api/chat", { data: { question: "Tell me about a private undisclosed NALCO contract with Apple" } });
   expect(privateClaim.ok()).toBeTruthy();
   const privateJson = await privateClaim.json();
-  expect(privateJson.answer).toBe("I could not verify this from available sources.");
+  expect(privateJson.answer).toContain("I cannot verify that claim from the available public evidence.");
+  expect(privateJson.answer).toContain("verified public sources");
   expect(privateJson.confidence).toBe(0);
   expect(privateJson.citations).toEqual([]);
 
   const livePrice = await request.post("/api/chat", { data: { question: "What is the current live aluminium price today?" } });
   expect(livePrice.ok()).toBeTruthy();
   const livePriceJson = await livePrice.json();
-  expect(livePriceJson.answer).toBe("I could not verify this from available sources.");
+  expect(livePriceJson.answer).toContain("I cannot verify a current live aluminium price from the available evidence.");
+  expect(livePriceJson.answer).toContain("not connected to a live commodity price feed");
   expect(livePriceJson.confidence).toBe(0);
   expect(livePriceJson.citations).toEqual([]);
 
@@ -245,7 +247,7 @@ test("api routes return expected JSON and validation errors", async ({ request }
     expect(Array.isArray(body.liveRefreshErrors)).toBeTruthy();
     const citationText = (body.citations || []).map((citation: { title: string; url: string }) => `${citation.title} ${citation.url}`).join("\n");
     expect(citationText).not.toMatch(/Help|Privacy Policy|Legal Disclaimer|Vigilance/i);
-    if (body.answer === "I could not verify this from available sources.") {
+    if (body.confidence === 0) {
       expect(body.confidence).toBe(0);
       expect(body.citations).toEqual([]);
     } else if (prompt === "Entity Map") {

@@ -192,11 +192,37 @@ function getRecencyBoost(doc: IntelligenceDocument) {
   return Math.max(0, 0.25 * (1 - ageInYears / 10)); // gradually decay over 10 years
 }
 
-function refusal(liveRefresh?: LiveRefreshMetadata): ChatAnswer {
+type RefusalReason = "private_or_undisclosed" | "live_price_unavailable" | "insufficient_evidence";
+
+function refusalAnswer(reason: RefusalReason) {
+  if (reason === "private_or_undisclosed") {
+    return [
+      "I cannot verify that claim from the available public evidence.",
+      "",
+      "The question appears to involve private, undisclosed, confidential, or unannounced information. To avoid presenting speculation as fact, I can only answer from verified public sources such as NALCO releases, filings, policy sources, and indexed market evidence.",
+      "",
+      "You can ask me instead to summarize verified NALCO announcements, recent filings, market signals, or policy risks with citations."
+    ].join("\n");
+  }
+  if (reason === "live_price_unavailable") {
+    return [
+      "I cannot verify a current live aluminium price from the available evidence.",
+      "",
+      "This workspace is not connected to a live commodity price feed right now, so I should not quote a real-time price or rate. I can still summarize verified aluminium market context, input-cost drivers, and NALCO-related market signals from the indexed sources."
+    ].join("\n");
+  }
+  return [
+    "I could not verify this from the available sources.",
+    "",
+    "I reviewed the indexed evidence, but it does not contain enough relevant, source-backed information to answer this specific question confidently. Please try asking about NALCO announcements, filings, aluminium market context, entities, or policy developments."
+  ].join("\n");
+}
+
+function refusal(liveRefresh?: LiveRefreshMetadata, reason: RefusalReason = "insufficient_evidence"): ChatAnswer {
   return {
     ...withLiveRefresh(
       {
-        answer: "I could not verify this from available sources.",
+        answer: refusalAnswer(reason),
         confidence: 0,
         evidenceDateRange: "No adequate evidence retrieved",
         entities: [],
@@ -288,7 +314,13 @@ function evidenceRange(docs: IntelligenceDocument[]) {
 }
 
 function isRefusalText(answer: string) {
-  return answer.trim().replace(/\.$/, "").toLowerCase() === "i could not verify this from available sources";
+  const normalized = answer.trim().replace(/\.$/, "").toLowerCase();
+  return (
+    normalized === "i could not verify this from available sources" ||
+    normalized === "i could not verify this from the available sources" ||
+    normalized.startsWith("i cannot verify that claim from the available public evidence") ||
+    normalized.startsWith("i cannot verify a current live aluminium price from the available evidence")
+  );
 }
 
 function citedAnswer(answer: string, docs: IntelligenceDocument[], confidence: number, liveRefresh: LiveRefreshMetadata): ChatAnswer {
@@ -329,7 +361,7 @@ function answerMessages(question: string, evidence: string) {
     {
       role: "system" as const,
       content:
-        "You are NALCO Intelligence Bot. Produce a polished, executive-ready answer only from the supplied latest evidence. Note that NATIONALUM is the stock exchange symbol (ticker) for NALCO and refers to the same company. Adapt the structure to the user's question: lead with the most material update, group related points, mention source dates when useful, and cite every factual claim as [1], [2]. Go beyond restating facts — explain the significance, causal relationships, and business implications (e.g. how input costs affect margins, why a policy matters for operations). If evidence is insufficient or unrelated to the question, say exactly: I could not verify this from available sources. Do not infer private, live price, or current numeric facts unless directly present in evidence."
+        "You are NALCO Intelligence Bot. Produce a polished, executive-ready answer only from the supplied latest evidence. Note that NATIONALUM is the stock exchange symbol (ticker) for NALCO and refers to the same company. Adapt the structure to the user's question: lead with the most material update, group related points, mention source dates when useful, and cite every factual claim as [1], [2]. Go beyond restating facts — explain the significance, causal relationships, and business implications (e.g. how input costs affect margins, why a policy matters for operations). If evidence is insufficient or unrelated to the question, politely explain that the claim cannot be verified from available sources and suggest a source-backed follow-up. Do not infer private, live price, or current numeric facts unless directly present in evidence."
     },
     { role: "user" as const, content: `Question: ${question}\n\nEvidence:\n${evidence}` }
   ];
@@ -379,11 +411,11 @@ function hasAdequateEvidence(question: string, retrieved: Awaited<ReturnType<typ
 async function prepareAnswer(question: string): Promise<PreparedAnswer> {
   const liveRefresh = await refreshEvidenceForChat();
   const empty = { liveRefresh, retrieved: [], docs: [], evidence: "", confidence: 0 };
-  if (asksPrivateOrUndisclosed(question)) return { ...empty, refusal: refusal(liveRefresh) };
-  if (needsLiveCommodityPrice(question) && !env.COMMODITY_API_KEY) return { ...empty, refusal: refusal(liveRefresh) };
+  if (asksPrivateOrUndisclosed(question)) return { ...empty, refusal: refusal(liveRefresh, "private_or_undisclosed") };
+  if (needsLiveCommodityPrice(question) && !env.COMMODITY_API_KEY) return { ...empty, refusal: refusal(liveRefresh, "live_price_unavailable") };
 
   const retrieved = isEntityMapIntent(question) ? await retrieveEntityMapDocuments(5) : isRiskSummaryIntent(question) ? await retrieveRiskSummaryDocuments(5) : isAluminiumMarketIntent(question) ? await retrieveAluminiumMarketDocuments(5) : await retrieveDocuments(question, 5);
-  if (!hasAdequateEvidence(question, retrieved)) return { ...empty, retrieved, refusal: refusal(liveRefresh) };
+  if (!hasAdequateEvidence(question, retrieved)) return { ...empty, retrieved, refusal: refusal(liveRefresh, "insufficient_evidence") };
   const topScore = retrieved[0]?.score || 0;
   const docs = retrieved
     .filter((item) => item.score > 0.18 && item.score >= topScore * 0.3)
@@ -393,7 +425,7 @@ async function prepareAnswer(question: string): Promise<PreparedAnswer> {
     .filter((item) => !isAluminiumMarketIntent(question) || !isPdfMetadataOnly(item.doc))
     .filter((item) => !isFilingIntent(question) || isFilingEvidence(item.doc))
     .map((item) => item.doc);
-  if (!docs.length) return { ...empty, retrieved, refusal: refusal(liveRefresh) };
+  if (!docs.length) return { ...empty, retrieved, refusal: refusal(liveRefresh, "insufficient_evidence") };
 
   const evidence = docs
     .map((doc, index) => `[${index + 1}] ${doc.title}\nSource: ${doc.sourceName}\nURL: ${doc.url}\nDate: ${doc.publishedAt || "unknown"}\nText: ${doc.summary} ${doc.cleanedText.slice(0, 1800)}`)
