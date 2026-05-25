@@ -478,6 +478,8 @@ Copy `.env.example` to `.env` for local development:
 cp .env.example .env
 ```
 
+For Vercel, use [.env.vercel.example](.env.vercel.example) as the safe template and copy the values into Vercel Project Settings. Never upload a real `.env` file.
+
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string for Prisma persistence. Leave empty for demo fallback. |
@@ -490,7 +492,7 @@ cp .env.example .env
 | `GOOGLE_SHEETS_ID` | Optional spreadsheet id for persistence/configuration. |
 | `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64` | Base64-encoded Google service account JSON. |
 | `NEWS_API_KEY` | Optional NewsAPI key. |
-| `GDELT_ENABLED` | Enables or disables GDELT ingestion. |
+| `GDELT_ENABLED` | Enables or disables GDELT ingestion. Defaults to `false` for free deployment safety. |
 | `COMMODITY_API_KEY` | Optional commodity feed key. Required before quoting live commodity prices. |
 | `SCRAPER_USER_AGENT` | User agent for source crawling. |
 | `INGEST_TIMEOUT_MS` | Fetch timeout for ingestion requests. |
@@ -499,8 +501,8 @@ cp .env.example .env
 | `INGESTION_INTERVAL_MINUTES` | Page-load ingestion cooldown. |
 | `NEXT_PUBLIC_APP_NAME` | Display/app name. |
 | `APP_BASE_URL` | Base app URL. |
-| `ENABLE_LIVE_INGEST` | Enables live ingestion features. |
-| `ENABLE_PAGE_LOAD_INGEST` | Enables browser heartbeat ingestion. |
+| `ENABLE_LIVE_INGEST` | Enables live ingestion features. Defaults to `false`; turn on only after configuring production source limits. |
+| `ENABLE_PAGE_LOAD_INGEST` | Enables browser heartbeat ingestion. Defaults to `false`; keep off on free Vercel deployments unless needed. |
 | `NALCO_MOCK_LIVE_SOURCES` | Uses local mock live sources for fast, reliable tests. |
 
 ## Local Development
@@ -540,7 +542,7 @@ NALCO_MOCK_LIVE_SOURCES=true npm run dev
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the Next.js dev server. |
-| `npm run build` | Build the production app. |
+| `npm run build` | Generate Prisma client with a safe fallback URL, then build the production app. |
 | `npm run start` | Start the production build. |
 | `npm run lint` | Run ESLint. |
 | `npm run typecheck` | Run TypeScript checks. |
@@ -580,13 +582,20 @@ NALCO_MOCK_LIVE_SOURCES=true npm run test
 
 ## Deployment Notes
 
-The app can be deployed to Vercel or another Node-compatible host.
+The app can be deployed to Vercel or another Node-compatible host. Vercel settings are pinned in [vercel.json](vercel.json), and upload exclusions are listed in [.vercelignore](.vercelignore).
 
-Recommended production setup:
+Recommended first Vercel setup:
+
+- Deploy with demo memory data first.
+- Copy [.env.vercel.example](.env.vercel.example) values into Vercel environment variables.
+- Keep `ENABLE_LIVE_INGEST=false`, `ENABLE_PAGE_LOAD_INGEST=false`, and `GDELT_ENABLED=false` on the free tier.
+- Set `NALCO_MOCK_LIVE_SOURCES=true` if you want predictable demo refresh metadata.
+
+Recommended production setup after the demo is stable:
 
 - PostgreSQL database through Neon, Supabase, RDS, or another provider.
 - `DATABASE_URL` configured in the hosting platform.
-- Scheduled call to `POST /api/ingest/run`.
+- Scheduled or manual call to `POST /api/ingest/run`.
 - Optional Google Sheets only if spreadsheet-based persistence/configuration is desired.
 - Optional Ollama or OpenAI-compatible API credentials for polished generated answers.
 - `COMMODITY_API_KEY` only when live commodity price answers are required.
@@ -597,11 +606,10 @@ Run before deployment:
 npm run build
 ```
 
-If using Prisma:
+If using Prisma with a real database:
 
 ```bash
-npm run prisma:generate
-npm run prisma:migrate
+DATABASE_URL="your_postgres_url" npx prisma migrate deploy
 ```
 
 ## Operational Notes

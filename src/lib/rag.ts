@@ -54,6 +54,20 @@ function friendlyRefreshErrors(result: Awaited<ReturnType<typeof runIngestion>>)
 
 async function performLiveRefresh(): Promise<LiveRefreshMetadata> {
   const fetchedAt = new Date().toISOString();
+  if (!env.ENABLE_LIVE_INGEST) {
+    return {
+      liveRefreshStatus: "completed",
+      liveFetchedAt: fetchedAt,
+      liveFetchedCount: 0,
+      liveRefreshErrors: [],
+      nalcoStatus: "skipped",
+      gdeltStatus: "skipped",
+      newsApiStatus: "skipped",
+      failedUrls: [],
+      retriedUrls: [],
+      successfulNalcoPages: 0
+    };
+  }
   try {
     const result = await runIngestion();
     return {
