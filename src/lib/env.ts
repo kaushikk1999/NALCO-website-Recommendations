@@ -11,7 +11,7 @@ const envSchema = z.object({
   GOOGLE_SHEETS_ID: z.string().optional(),
   GOOGLE_SERVICE_ACCOUNT_JSON_BASE64: z.string().optional(),
   NEWS_API_KEY: z.string().optional(),
-  GDELT_ENABLED: z.coerce.boolean().default(true),
+  GDELT_ENABLED: z.coerce.boolean().default(false),
   COMMODITY_API_KEY: z.string().optional(),
   SCRAPER_USER_AGENT: z.string().optional(),
   INGEST_USER_AGENT: z.string().optional(),
@@ -21,8 +21,8 @@ const envSchema = z.object({
   INGESTION_INTERVAL_MINUTES: z.coerce.number().default(1),
   NEXT_PUBLIC_APP_NAME: z.string().default("NALCO Intelligence Bot"),
   APP_BASE_URL: z.string().default("http://localhost:3000"),
-  ENABLE_LIVE_INGEST: z.coerce.boolean().default(true),
-  ENABLE_PAGE_LOAD_INGEST: z.coerce.boolean().default(true),
+  ENABLE_LIVE_INGEST: z.coerce.boolean().default(false),
+  ENABLE_PAGE_LOAD_INGEST: z.coerce.boolean().default(false),
   NALCO_MOCK_LIVE_SOURCES: z.coerce.boolean().default(false)
 }).transform((value) => ({
   ...value,

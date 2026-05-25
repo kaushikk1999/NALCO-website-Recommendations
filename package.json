@@ -4,13 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/prisma-generate.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "test": "playwright test",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
-    "prisma:generate": "prisma generate",
+    "prisma:generate": "node scripts/prisma-generate.mjs",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "ingest": "tsx scripts/run-ingestion.ts"

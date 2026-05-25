@@ -8,6 +8,11 @@ type Message = { role: "user" | "assistant"; text: string; result?: ChatAnswer }
 type StreamEvent = { event: string; data: string };
 
 const prompts = ["Latest NALCO News", "Recent Filings", "Aluminium Market", "Entity Map", "Risk Summary"];
+const unavailableAnswer = [
+  "I could not complete that response from the available sources.",
+  "",
+  "Please try again, or ask for a source-backed NALCO topic such as recent announcements, filings, aluminium market context, entity mapping, or policy risks."
+].join("\n");
 
 function shouldShowMetadata(result?: ChatAnswer) {
   return Boolean(result && (result.confidence > 0 || result.citations.length > 0 || result.entities.length > 0 || result.liveRefreshStatus));
@@ -130,7 +135,7 @@ export function ChatWidget() {
         body: JSON.stringify({ question })
       });
       const result = await response.json();
-      updateAssistant(() => ({ role: "assistant", text: result.answer || "I could not verify this from available sources.", result }));
+      updateAssistant(() => ({ role: "assistant", text: result.answer || unavailableAnswer, result }));
     }
 
     try {
@@ -165,7 +170,7 @@ export function ChatWidget() {
           }
           if (event.event === "metadata") {
             const result = JSON.parse(event.data) as ChatAnswer;
-            updateAssistant((message) => ({ ...message, text: message.text || result.answer || "I could not verify this from available sources.", result }));
+            updateAssistant((message) => ({ ...message, text: message.text || result.answer || unavailableAnswer, result }));
           }
           if (event.event === "error") throw new Error("Streaming chat failed");
         }
@@ -176,7 +181,7 @@ export function ChatWidget() {
       try {
         await fallbackToJson();
       } catch {
-        updateAssistant(() => ({ role: "assistant", text: "I could not verify this from available sources." }));
+        updateAssistant(() => ({ role: "assistant", text: unavailableAnswer }));
       }
     } finally {
       setLoading(false);
