@@ -51,8 +51,13 @@ NALCO_MOCK_LIVE_SOURCES=true
 Optional database persistence:
 
 ```env
-DATABASE_URL=your_neon_or_supabase_pooled_postgres_url
+DATABASE_URL=your_supabase_pooled_postgres_url
+DIRECT_URL=your_supabase_direct_postgres_url
 ```
+
+For Supabase + Prisma, `DATABASE_URL` should be the pooled connection string used by the Vercel serverless runtime, and `DIRECT_URL` should be the direct connection string used by Prisma migrations.
+
+Do not use a Supabase personal access token as `DATABASE_URL`. A personal access token is for the Supabase Management API. The RAG knowledge base needs a PostgreSQL connection string from your Supabase project database settings.
 
 Optional LLM formatting:
 
@@ -115,21 +120,35 @@ The Prisma helper sets a harmless placeholder `DATABASE_URL` only for client gen
 
 For a production database:
 
-1. Create a Neon or Supabase Postgres database.
-2. Add the pooled connection string as `DATABASE_URL` in Vercel.
-3. Run migrations from your local machine:
+1. Create a Supabase Postgres database.
+2. In Supabase, open **Project Settings -> Database -> Connection string**.
+3. Copy the pooled connection string into `DATABASE_URL` in Vercel.
+4. Copy the direct connection string into `DIRECT_URL` in Vercel.
+5. Run migrations from your local machine:
 
 ```bash
-DATABASE_URL="your_postgres_url" npx prisma migrate deploy
+DATABASE_URL="your_supabase_pooled_url" DIRECT_URL="your_supabase_direct_url" npx prisma migrate deploy
 ```
 
-4. Optionally seed:
+6. Optionally seed:
 
 ```bash
-DATABASE_URL="your_postgres_url" npm run prisma:seed
+DATABASE_URL="your_supabase_pooled_url" DIRECT_URL="your_supabase_direct_url" npm run prisma:seed
 ```
 
 If `DATABASE_URL` is empty, the app uses demo memory data.
+
+## How RAG Uses Supabase
+
+When `DATABASE_URL` is configured, the app stores and retrieves RAG evidence from the Supabase Postgres `Document` table defined in [prisma/schema.prisma](prisma/schema.prisma).
+
+The chat flow is:
+
+```text
+ChatWidget -> /api/chat or /api/chat/stream -> src/lib/rag.ts -> src/lib/store.ts -> Supabase Postgres Document table
+```
+
+Ingestion writes normalized documents into Supabase through Prisma. Retrieval reads those documents, scores them, and returns cited answers.
 
 ## Ingestion on Vercel
 

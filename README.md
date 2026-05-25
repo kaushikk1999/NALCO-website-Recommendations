@@ -482,7 +482,8 @@ For Vercel, use [.env.vercel.example](.env.vercel.example) as the safe template 
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string for Prisma persistence. Leave empty for demo fallback. |
+| `DATABASE_URL` | Pooled PostgreSQL connection string for Prisma runtime persistence. Use Supabase's pooled URL on Vercel. Leave empty for demo fallback. |
+| `DIRECT_URL` | Direct PostgreSQL connection string for Prisma migrations. Use Supabase's direct URL when running `prisma migrate deploy`. |
 | `OPENAI_API_KEY` | Optional OpenAI-compatible API key. |
 | `OPENAI_BASE_URL` | Optional custom OpenAI-compatible base URL. |
 | `OPENAI_MODEL` | Model name for OpenAI-compatible answers. |
@@ -593,8 +594,9 @@ Recommended first Vercel setup:
 
 Recommended production setup after the demo is stable:
 
-- PostgreSQL database through Neon, Supabase, RDS, or another provider.
-- `DATABASE_URL` configured in the hosting platform.
+- PostgreSQL database through Supabase, Neon, RDS, or another provider.
+- `DATABASE_URL` configured with the pooled Postgres URL in the hosting platform.
+- `DIRECT_URL` configured with the direct Postgres URL for Prisma migrations.
 - Scheduled or manual call to `POST /api/ingest/run`.
 - Optional Google Sheets only if spreadsheet-based persistence/configuration is desired.
 - Optional Ollama or OpenAI-compatible API credentials for polished generated answers.
@@ -609,8 +611,10 @@ npm run build
 If using Prisma with a real database:
 
 ```bash
-DATABASE_URL="your_postgres_url" npx prisma migrate deploy
+DATABASE_URL="your_supabase_pooled_url" DIRECT_URL="your_supabase_direct_url" npx prisma migrate deploy
 ```
+
+Do not use a Supabase personal access token for RAG storage. The deployed app needs Supabase Postgres connection strings, not the Supabase Management API token.
 
 ## Operational Notes
 
